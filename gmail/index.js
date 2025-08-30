@@ -193,36 +193,158 @@ server.tool(
   }
 );
 
-// Get a specific email
+// Get message (lean - only essential information)
 server.tool(
   'gmail_get_message',
-  'Get full details of a specific email',
+  'Get email message with essential information only',
   {
-    messageId: z.string().describe('The ID of the message to retrieve'),
-    format: z.enum(['full', 'metadata', 'minimal']).default('full').describe('Format of the message')
+    messageId: z.string().describe('The ID of the message to retrieve')
   },
   async (params) => {
     return handleGmailOperation(async (gmail) => {
       const { data } = await gmail.users.messages.get({
         userId: 'me',
         id: params.messageId,
-        format: params.format
+        format: 'full'
       });
       
       const headers = extractHeaders(data.payload?.headers);
-      const body = params.format === 'full' ? decodeMessageBody(data) : '';
+      const body = decodeMessageBody(data);
       
-      return formatResponse({
+      // Extract attachment information
+      const attachments = [];
+      if (data.payload) {
+        const extractAttachments = (part) => {
+          if (part.filename && part.body && part.body.attachmentId) {
+            attachments.push({
+              filename: part.filename,
+              mimeType: part.mimeType,
+              size: part.body.size,
+              attachmentId: part.body.attachmentId
+            });
+          }
+          if (part.parts) {
+            part.parts.forEach(extractAttachments);
+          }
+        };
+        extractAttachments(data.payload);
+      }
+      
+      // Build lean response with only essential headers
+      const response = {
         id: data.id,
         threadId: data.threadId,
         labelIds: data.labelIds,
         snippet: data.snippet,
-        headers: headers,
-        body: body,
-        sizeEstimate: data.sizeEstimate,
-        historyId: data.historyId,
-        internalDate: data.internalDate
+        from: headers.from,
+        to: headers.to,
+        subject: headers.subject,
+        date: headers.date,
+        body: body
+      };
+      
+      // Add optional headers only if they exist
+      if (headers.cc) response.cc = headers.cc;
+      if (headers.bcc) response.bcc = headers.bcc;
+      if (headers['reply-to']) response.replyTo = headers['reply-to'];
+      
+      // Add attachments only if present
+      if (attachments.length > 0) {
+        response.attachments = attachments;
+      }
+      
+      return formatResponse(response);
+    });
+  }
+);
+
+// Get message with HTML
+server.tool(
+  'gmail_get_message_with_html',
+  'Get email message including both plain text and HTML body',
+  {
+    messageId: z.string().describe('The ID of the message to retrieve')
+  },
+  async (params) => {
+    return handleGmailOperation(async (gmail) => {
+      const { data } = await gmail.users.messages.get({
+        userId: 'me',
+        id: params.messageId,
+        format: 'full'
       });
+      
+      const headers = extractHeaders(data.payload?.headers);
+      const plainBody = decodeMessageBody(data);
+      
+      // Extract HTML body
+      let htmlBody = '';
+      if (data.payload) {
+        const findHtmlPart = (parts) => {
+          if (!parts) return '';
+          
+          for (const part of parts) {
+            if (part.mimeType === 'text/html' && part.body?.data) {
+              return Buffer.from(part.body.data, 'base64').toString('utf-8');
+            }
+            if (part.parts) {
+              const html = findHtmlPart(part.parts);
+              if (html) return html;
+            }
+          }
+          return '';
+        };
+        
+        if (data.payload.parts) {
+          htmlBody = findHtmlPart(data.payload.parts);
+        } else if (data.payload.mimeType === 'text/html' && data.payload.body?.data) {
+          htmlBody = Buffer.from(data.payload.body.data, 'base64').toString('utf-8');
+        }
+      }
+      
+      // Extract attachments
+      const attachments = [];
+      if (data.payload) {
+        const extractAttachments = (part) => {
+          if (part.filename && part.body && part.body.attachmentId) {
+            attachments.push({
+              filename: part.filename,
+              mimeType: part.mimeType,
+              size: part.body.size,
+              attachmentId: part.body.attachmentId
+            });
+          }
+          if (part.parts) {
+            part.parts.forEach(extractAttachments);
+          }
+        };
+        extractAttachments(data.payload);
+      }
+      
+      // Build response with essential headers only
+      const response = {
+        id: data.id,
+        threadId: data.threadId,
+        labelIds: data.labelIds,
+        snippet: data.snippet,
+        from: headers.from,
+        to: headers.to,
+        subject: headers.subject,
+        date: headers.date,
+        body: plainBody,
+        bodyHtml: htmlBody
+      };
+      
+      // Add optional headers only if they exist
+      if (headers.cc) response.cc = headers.cc;
+      if (headers.bcc) response.bcc = headers.bcc;
+      if (headers['reply-to']) response.replyTo = headers['reply-to'];
+      
+      // Add attachments only if present
+      if (attachments.length > 0) {
+        response.attachments = attachments;
+      }
+      
+      return formatResponse(response);
     });
   }
 );
