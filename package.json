@@ -1,0 +1,16 @@
+{
+  "name": "@mevio/google-services-mcp",
+  "version": "1.0.0",
+  "description": "Unified Google Services MCP Servers",
+  "type": "module",
+  "scripts": {
+    "start:calendar": "node calendar/index.js",
+    "start:gmail": "node gmail/index.js",
+    "start:drive": "node drive/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "googleapis": "^118.0.0",
+    "zod": "^3.22.4"
+  }
+}
