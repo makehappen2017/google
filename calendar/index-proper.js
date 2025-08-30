@@ -3,7 +3,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { google } from 'googleapis';
-import { createAuthClient, handleGoogleError } from '../shared/auth.js';
 
 // Google Calendar API setup
 const CALENDAR_SCOPES = [

@@ -1,0 +1,50 @@
+{
+  "name": "Gmail MCP Server",
+  "description": "Model Context Protocol server for Gmail - send, read, and manage emails",
+  "icon": "https://www.gstatic.com/images/branding/product/2x/gmail_2020q4_512dp.png",
+  "category": "productivity",
+  "subcategory": "email",
+  "mcpServers": {
+    "gmail": {
+      "command": "node",
+      "args": ["{{BASE_DIR}}/index.js"],
+      "env": {
+        "access_token": "{{oauth_access_token}}",
+        "refresh_token": "{{oauth_refresh_token}}",
+        "CLIENT_ID": "{{oauth_client_id}}",
+        "CLIENT_SECRET": "{{oauth_client_secret}}"
+      }
+    }
+  },
+  "requiredFields": [],
+  "optionalFields": [],
+  "oauth_config": {
+    "provider": "google",
+    "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
+    "token_url": "https://oauth2.googleapis.com/token",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.modify",
+      "https://www.googleapis.com/auth/gmail.labels",
+      "https://www.googleapis.com/auth/gmail.settings.basic",
+      "https://www.googleapis.com/auth/gmail.settings.sharing"
+    ],
+    "redirect_uri": "https://app.serenitiesai.com/api/oauth/native/callback"
+  },
+  "capabilities": [
+    "Send emails with attachments",
+    "Read and search emails", 
+    "Manage labels and folders",
+    "Create and manage filters",
+    "Handle spam and trash",
+    "Manage email signatures",
+    "Create and use templates",
+    "Batch operations support",
+    "Thread management",
+    "Draft creation and management",
+    "Email forwarding and auto-reply",
+    "Send aliases management"
+  ],
+  "documentation": "https://github.com/makehappen2017/google/blob/main/gmail/README.md"
+}
