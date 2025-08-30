@@ -3,7 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { google } from 'googleapis';
-import { createAuthClient, handleGoogleError } from '../shared/auth.js';
+import { createAuthClient } from '../shared/auth.js';
 
 // Gmail API setup
 const GMAIL_SCOPES = [
@@ -87,8 +87,7 @@ const handleGmailOperation = async (operation) => {
     return await operation(gmail);
   } catch (error) {
     console.error('Gmail operation failed:', error);
-    const errorResponse = handleGoogleError(error);
-    throw new Error(errorResponse.error);
+    throw error;
   }
 };
 
