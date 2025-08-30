@@ -1,0 +1,52 @@
+{
+  "name": "google-sheets",
+  "displayName": "Google Sheets",
+  "description": "Google Sheets integration for spreadsheet operations",
+  "parameters": {
+    "oauth": {
+      "type": "oauth",
+      "label": "Google OAuth",
+      "provider": "google",
+      "scopes": [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.readonly"
+      ],
+      "parameters": {
+        "client_id": {
+          "type": "string",
+          "label": "Client ID",
+          "placeholder": "Enter your Google OAuth Client ID",
+          "required": true
+        },
+        "client_secret": {
+          "type": "string",
+          "label": "Client Secret",
+          "placeholder": "Enter your Google OAuth Client Secret",
+          "required": true,
+          "secret": true
+        },
+        "redirect_uri": {
+          "type": "string",
+          "label": "Redirect URI",
+          "default": "http://localhost:3000/api/oauth/google/callback",
+          "required": false
+        },
+        "access_token": {
+          "type": "string",
+          "label": "Access Token",
+          "hidden": true,
+          "env_mapping": "GOOGLE_SHEETS_ACCESS_TOKEN"
+        },
+        "refresh_token": {
+          "type": "string",
+          "label": "Refresh Token",
+          "hidden": true,
+          "env_mapping": "GOOGLE_SHEETS_REFRESH_TOKEN"
+        }
+      }
+    }
+  },
+  "env_mapping": {
+    "GOOGLE_SHEETS_OAUTH": "{{oauth}}"
+  }
+}
