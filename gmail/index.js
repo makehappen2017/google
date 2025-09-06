@@ -257,6 +257,63 @@ server.tool(
   }
 );
 
+// Download attachment from a message
+server.tool(
+  'gmail_get_attachment',
+  'Download an attachment from an email message',
+  {
+    messageId: z.string().describe('The ID of the message containing the attachment'),
+    attachmentId: z.string().describe('The ID of the attachment to download (get from gmail_get_message)')
+  },
+  async (params) => {
+    return handleGmailOperation(async (gmail) => {
+      const { data } = await gmail.users.messages.attachments.get({
+        userId: 'me',
+        messageId: params.messageId,
+        id: params.attachmentId
+      });
+      
+      // Get the original message to find the attachment metadata
+      const { data: message } = await gmail.users.messages.get({
+        userId: 'me',
+        id: params.messageId,
+        format: 'full'
+      });
+      
+      // Find the attachment info
+      let attachmentInfo = null;
+      const findAttachment = (part) => {
+        if (part.body?.attachmentId === params.attachmentId) {
+          attachmentInfo = {
+            filename: part.filename,
+            mimeType: part.mimeType,
+            size: data.size
+          };
+          return true;
+        }
+        if (part.parts) {
+          for (const subPart of part.parts) {
+            if (findAttachment(subPart)) return true;
+          }
+        }
+        return false;
+      };
+      
+      if (message.payload) {
+        findAttachment(message.payload);
+      }
+      
+      return formatResponse({
+        attachmentId: params.attachmentId,
+        filename: attachmentInfo?.filename || 'attachment',
+        mimeType: attachmentInfo?.mimeType || 'application/octet-stream',
+        size: data.size,
+        data: data.data // Base64 encoded content
+      });
+    });
+  }
+);
+
 // Get message with HTML
 server.tool(
   'gmail_get_message_with_html',
@@ -348,10 +405,10 @@ server.tool(
   }
 );
 
-// Send an email
+// Send an email (with optional attachments)
 server.tool(
   'gmail_send_message',
-  'Send an email message',
+  'Send an email message with optional attachments',
   {
     to: z.string().describe('Recipient email address(es), comma-separated for multiple'),
     subject: z.string().describe('Email subject'),
@@ -359,30 +416,83 @@ server.tool(
     cc: z.string().optional().describe('CC recipients, comma-separated'),
     bcc: z.string().optional().describe('BCC recipients, comma-separated'),
     replyTo: z.string().optional().describe('Reply-to email address'),
-    isHtml: z.boolean().default(false).describe('Whether the body is HTML')
+    isHtml: z.boolean().default(false).describe('Whether the body is HTML'),
+    attachments: z.array(z.object({
+      filename: z.string().describe('Name of the file'),
+      mimeType: z.string().describe('MIME type (e.g., "application/pdf", "image/png")'),
+      content: z.string().describe('Base64 encoded file content')
+    })).optional().describe('Array of file attachments')
   },
   async (params) => {
     return handleGmailOperation(async (gmail) => {
-      // Construct the email
-      const messageParts = [
-        `To: ${params.to}`,
-        `Subject: ${params.subject}`
-      ];
+      let message;
       
-      if (params.cc) messageParts.push(`Cc: ${params.cc}`);
-      if (params.bcc) messageParts.push(`Bcc: ${params.bcc}`);
-      if (params.replyTo) messageParts.push(`Reply-To: ${params.replyTo}`);
-      
-      if (params.isHtml) {
-        messageParts.push('Content-Type: text/html; charset=utf-8');
+      // If we have attachments, create a multipart message
+      if (params.attachments && params.attachments.length > 0) {
+        const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const messageParts = [
+          `To: ${params.to}`,
+          `Subject: ${params.subject}`
+        ];
+        
+        if (params.cc) messageParts.push(`Cc: ${params.cc}`);
+        if (params.bcc) messageParts.push(`Bcc: ${params.bcc}`);
+        if (params.replyTo) messageParts.push(`Reply-To: ${params.replyTo}`);
+        
+        // Set multipart mixed content type
+        messageParts.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+        messageParts.push('');
+        
+        // Add text/html body part
+        messageParts.push(`--${boundary}`);
+        if (params.isHtml) {
+          messageParts.push('Content-Type: text/html; charset=utf-8');
+        } else {
+          messageParts.push('Content-Type: text/plain; charset=utf-8');
+        }
+        messageParts.push('Content-Transfer-Encoding: base64');
+        messageParts.push('');
+        messageParts.push(Buffer.from(params.body).toString('base64'));
+        
+        // Add each attachment
+        for (const attachment of params.attachments) {
+          messageParts.push('');
+          messageParts.push(`--${boundary}`);
+          messageParts.push(`Content-Type: ${attachment.mimeType}; name="${attachment.filename}"`);
+          messageParts.push('Content-Transfer-Encoding: base64');
+          messageParts.push(`Content-Disposition: attachment; filename="${attachment.filename}"`);
+          messageParts.push('');
+          messageParts.push(attachment.content);
+        }
+        
+        // Close the multipart message
+        messageParts.push('');
+        messageParts.push(`--${boundary}--`);
+        
+        message = messageParts.join('\n');
       } else {
-        messageParts.push('Content-Type: text/plain; charset=utf-8');
+        // Simple message without attachments (existing logic)
+        const messageParts = [
+          `To: ${params.to}`,
+          `Subject: ${params.subject}`
+        ];
+        
+        if (params.cc) messageParts.push(`Cc: ${params.cc}`);
+        if (params.bcc) messageParts.push(`Bcc: ${params.bcc}`);
+        if (params.replyTo) messageParts.push(`Reply-To: ${params.replyTo}`);
+        
+        if (params.isHtml) {
+          messageParts.push('Content-Type: text/html; charset=utf-8');
+        } else {
+          messageParts.push('Content-Type: text/plain; charset=utf-8');
+        }
+        
+        messageParts.push('');
+        messageParts.push(params.body);
+        
+        message = messageParts.join('\n');
       }
       
-      messageParts.push('');
-      messageParts.push(params.body);
-      
-      const message = messageParts.join('\n');
       const encodedMessage = Buffer.from(message)
         .toString('base64')
         .replace(/\+/g, '-')
@@ -400,7 +510,8 @@ server.tool(
         success: true,
         messageId: data.id,
         threadId: data.threadId,
-        labelIds: data.labelIds
+        labelIds: data.labelIds,
+        attachmentCount: params.attachments ? params.attachments.length : 0
       });
     });
   }

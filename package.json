@@ -9,6 +9,7 @@
     "start:drive": "node drive/index.js"
   },
   "dependencies": {
+    "@google/genai": "^1.17.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "googleapis": "^118.0.0",
     "zod": "^3.22.4"
