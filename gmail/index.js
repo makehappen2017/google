@@ -267,27 +267,21 @@ server.tool(
   },
   async (params) => {
     return handleGmailOperation(async (gmail) => {
-      const { data } = await gmail.users.messages.attachments.get({
-        userId: 'me',
-        messageId: params.messageId,
-        id: params.attachmentId
-      });
-      
-      // Get the original message to find the attachment metadata
+      // First get the message to find attachment metadata
       const { data: message } = await gmail.users.messages.get({
         userId: 'me',
         id: params.messageId,
         format: 'full'
       });
       
-      // Find the attachment info
+      // Find the attachment info from message parts
       let attachmentInfo = null;
       const findAttachment = (part) => {
         if (part.body?.attachmentId === params.attachmentId) {
           attachmentInfo = {
             filename: part.filename,
             mimeType: part.mimeType,
-            size: data.size
+            size: part.body.size // Use size from message part
           };
           return true;
         }
@@ -303,12 +297,27 @@ server.tool(
         findAttachment(message.payload);
       }
       
+      // Now fetch the actual attachment data
+      const { data } = await gmail.users.messages.attachments.get({
+        userId: 'me',
+        messageId: params.messageId,
+        id: params.attachmentId
+      });
+      
+      // Gmail returns URL-safe base64, convert to standard base64 if needed
+      let base64Data = data.data;
+      if (base64Data) {
+        base64Data = base64Data
+          .replace(/-/g, '+')
+          .replace(/_/g, '/');
+      }
+      
       return formatResponse({
         attachmentId: params.attachmentId,
         filename: attachmentInfo?.filename || 'attachment',
         mimeType: attachmentInfo?.mimeType || 'application/octet-stream',
-        size: data.size,
-        data: data.data // Base64 encoded content
+        size: attachmentInfo?.size || data.size,
+        data: base64Data // Standard base64 encoded content
       });
     });
   }
