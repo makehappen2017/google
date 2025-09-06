@@ -968,35 +968,6 @@ server.tool(
   }
 );
 
-// Download attachment
-server.tool(
-  'gmail_get_attachment',
-  'Download an email attachment',
-  {
-    messageId: z.string().describe('Message ID containing the attachment'),
-    attachmentId: z.string().describe('Attachment ID to download')
-  },
-  async (params) => {
-    return handleGmailOperation(async (gmail) => {
-      const { data } = await gmail.users.messages.attachments.get({
-        userId: 'me',
-        messageId: params.messageId,
-        id: params.attachmentId
-      });
-      
-      // Decode the attachment data
-      const attachmentData = Buffer.from(data.data || '', 'base64');
-      
-      return formatResponse({
-        success: true,
-        size: data.size,
-        data: data.data, // Base64 encoded data
-        decodedSize: attachmentData.length,
-        message: 'Attachment retrieved successfully'
-      });
-    });
-  }
-);
 
 // List attachments in a message
 server.tool(
