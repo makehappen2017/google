@@ -312,32 +312,15 @@ server.tool(
           .replace(/_/g, '/');
       }
       
-      // Return as both structured data and as a resource
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Downloaded attachment: ${attachmentInfo?.filename || 'attachment'} (${attachmentInfo?.size || data.size} bytes)`
-          },
-          {
-            type: 'resource',
-            resource: {
-              uri: `data:${attachmentInfo?.mimeType || 'application/octet-stream'};base64,${base64Data}`,
-              name: attachmentInfo?.filename || 'attachment',
-              mimeType: attachmentInfo?.mimeType || 'application/octet-stream',
-              size: attachmentInfo?.size || data.size
-            }
-          }
-        ],
-        // Also include raw data for JSON access
-        _meta: {
-          attachmentId: params.attachmentId,
-          filename: attachmentInfo?.filename || 'attachment',
-          mimeType: attachmentInfo?.mimeType || 'application/octet-stream',
-          size: attachmentInfo?.size || data.size,
-          data: base64Data
-        }
-      };
+      // Return in standard format with data directly accessible
+      return formatResponse({
+        attachmentId: params.attachmentId,
+        filename: attachmentInfo?.filename || 'attachment',
+        mimeType: attachmentInfo?.mimeType || 'application/octet-stream',
+        size: attachmentInfo?.size || data.size,
+        format: 'base64',
+        content: base64Data // The actual base64 content
+      });
     });
   }
 );
